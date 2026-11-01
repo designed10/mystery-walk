@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>まちあるきミステリー</title>
+<style>
+  :root{
+    --bg:#0f172a; --bg2:#1e293b; --card:#1e293b; --line:#334155;
+    --accent:#38bdf8; --accent2:#818cf8; --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+    --text:#e2e8f0; --sub:#94a3b8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #1e3a5f 0%, var(--bg) 60%);
+    color:var(--text); min-height:100vh; min-height:100dvh;
+    display:flex; flex-direction:column; align-items:center;
+    padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  }
+  .screen{width:100%; max-width:420px; display:none; flex-direction:column; flex:1;}
+  .screen.active{display:flex;}
+  h1{font-size:1.35rem; margin:22px 0 4px; text-align:center; letter-spacing:.02em;}
+  .tagline{text-align:center; color:var(--sub); font-size:.85rem; margin-bottom:22px; line-height:1.6;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:18px; margin-bottom:14px;
+  }
+  .label{font-size:.78rem; color:var(--sub); margin-bottom:8px; display:block;}
+  .radius-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .chip{
+    padding:12px 4px; border-radius:12px; border:1px solid var(--line);
+    background:#0f172a; color:var(--text); text-align:center; font-size:.95rem;
+    cursor:pointer; transition:all .15s;
+  }
+  .chip small{display:block; font-size:.68rem; color:var(--sub); margin-top:2px;}
+  .chip.sel{border-color:var(--accent); background:linear-gradient(160deg,#0c4a6e,#0f172a); color:#fff; box-shadow:0 0 0 1px var(--accent);}
+  .row{display:flex; justify-content:space-between; align-items:center; padding:10px 0;}
+  .row+.row{border-top:1px solid var(--line);}
+  .row .name{font-size:.92rem;}
+  .row .desc{font-size:.72rem; color:var(--sub); margin-top:2px;}
+  .switch{position:relative; width:48px; height:28px; flex:none;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{position:absolute; inset:0; background:#334155; border-radius:28px; transition:.2s; cursor:pointer;}
+  .slider:before{content:""; position:absolute; width:22px; height:22px; border-radius:50%; left:3px; top:3px; background:#94a3b8; transition:.2s;}
+  .switch input:checked + .slider{background:var(--accent);}
+  .switch input:checked + .slider:before{transform:translateX(20px); background:#fff;}
+  .btn{
+    width:100%; padding:16px; border:none; border-radius:14px; font-size:1.05rem; font-weight:700;
+    cursor:pointer; transition:transform .1s, opacity .2s; margin-top:6px;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0b1120;}
+  .btn-ghost{background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:500; font-size:.9rem; padding:12px;}
+  .note{font-size:.72rem; color:var(--sub); line-height:1.7; margin-top:10px;}
+  .err-box{
+    display:none; background:#451a1a; border:1px solid var(--err); color:#fecaca;
+    border-radius:12px; padding:12px 14px; font-size:.82rem; margin-top:12px; line-height:1.6;
+  }
+  .err-box.show{display:block;}
+
+  /* ---------- walking screen ---------- */
+  .topbar{display:flex; justify-content:space-between; align-items:center; padding:16px 0 8px;}
+  .title-mini{font-size:.9rem; font-weight:700;}
+  .gps{font-size:.68rem; color:var(--sub); display:flex; align-items:center; gap:5px;}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--warn); display:inline-block;}
+  .dot.ok{background:var(--ok);}
+  .compass-wrap{position:relative; width:290px; height:290px; margin:10px auto 4px; flex:none;}
+  @media (max-height:700px){ .compass-wrap{width:230px; height:230px;} }
+  .ring{position:absolute; inset:0; border-radius:50%; border:2px solid var(--line); background:radial-gradient(circle at 50% 35%, #1e293b 0%, #0f172a 75%);}
+  .rose{position:absolute; inset:0; transition:transform .2s ease-out;}
+  .rose .n{position:absolute; top:9px; left:50%; transform:translateX(-50%); color:var(--err); font-weight:800; font-size:.8rem;}
+  .rose .dir{position:absolute; color:var(--sub); font-size:.7rem; font-weight:600;}
+  .rose .e{top:50%; right:8px; transform:translateY(-50%);}
+  .rose .s{bottom:9px; left:50%; transform:translateX(-50%);}
+  .rose .w{top:50%; left:8px; transform:translateY(-50%);}
+  .tick{position:absolute; top:14px; bottom:14px; left:50%; width:1px; background:linear-gradient(#334155 0 100%); opacity:.6;}
+  .arrow-wrap{position:absolute; inset:0; transition:transform .25s cubic-bezier(.3,1.4,.5,1);}
+  .arrow{position:absolute; left:50%; top:50%; transform:translate(-50%,-58%);}
+  .pulse{position:absolute; left:50%; top:50%; width:14px; height:14px; border-radius:50%; background:var(--accent); transform:translate(-50%,-50%); box-shadow:0 0 0 0 rgba(56,189,248,.55); animation:pulse 2s infinite;}
+  @keyframes pulse{ 70%{box-shadow:0 0 0 22px rgba(56,189,248,0);} 100%{box-shadow:0 0 0 0 rgba(56,189,248,0);} }
+  .info{text-align:center; margin-top:6px;}
+  .bearing-line{font-size:.95rem; color:var(--text);}
+  .bearing-line b{font-size:1.15rem; color:var(--accent);}
+  .dist{font-size:2.5rem; font-weight:800; letter-spacing:-.02em; margin:2px 0;}
+  .dist small{font-size:1rem; color:var(--sub); font-weight:600;}
+  .subline{font-size:.75rem; color:var(--sub); line-height:1.7;}
+  .stats{display:flex; justify-content:center; gap:22px; margin:14px 0 8px;}
+  .stat{text-align:center;}
+  .stat .v{font-size:1.05rem; font-weight:700;}
+  .stat .k{font-size:.66rem; color:var(--sub);}
+  .arrived-anim{display:none;}
+
+  /* ---------- arrival ---------- */
+  .celebrate{text-align:center; margin-top:30px;}
+  .celebrate .emoji{font-size:4rem;}
+  .celebrate h2{font-size:1.4rem; margin:12px 0 6px;}
+  .celebrate p{color:var(--sub); font-size:.85rem; line-height:1.7;}
+  .dest-card{margin-top:18px; text-align:center;}
+  .dest-card .coords{font-size:.95rem; font-weight:700; letter-spacing:.03em;}
+  .links{display:flex; gap:10px; margin-top:14px;}
+  .links a{
+    flex:1; display:block; padding:13px 6px; border-radius:12px; text-align:center;
+    font-size:.85rem; font-weight:700; text-decoration:none; color:#0b1120;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+  }
+  .links a.ghost{background:transparent; border:1px solid var(--line); color:var(--text); font-weight:500;}
+  footer{margin-top:auto; padding:18px 0; text-align:center; font-size:.66rem; color:#475569;}
+</style>
+</head>
+<body>
+
+<!-- ====== スタート画面 ====== -->
+<section id="screen-start" class="screen active">
+  <h1>🧭 まちあるきミステリー</h1>
+  <p class="tagline">目的地は秘密。矢印の方向だけを頼りに歩いて、<br>たどり着いた場所で正体が明かされます。</p>
+
+  <div class="card">
+    <span class="label">行動範囲（現在地からの半径）</span>
+    <div class="radius-grid">
+      <div class="chip" data-r="500">500m<small>気軽に</small></div>
+      <div class="chip sel" data-r="1000">1km<small>おさんぽ</small></div>
+      <div class="chip" data-r="2000">2km<small>しっかり</small></div>
+      <div class="chip" data-r="3000">3km<small>冒険</small></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><div class="name">目的地を道路にスナップ</div><div class="desc">オンライン時のみ。失敗時はランダム地点</div></div>
+      <label class="switch"><input type="checkbox" id="opt-snap" checked><span class="slider"></span></label>
+    </div>
+    <div class="row">
+      <div><div class="name">おおよその残り距離を表示</div><div class="desc">オフにすると方向だけの完全ミステリー</div></div>
+      <label class="switch"><input type="checkbox" id="opt-dist" checked><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="btn-start">散歩をはじめる</button>
+
+  <div class="err-box" id="err-start"></div>
+
+  <p class="note">
+    ※ 位置情報・コンパスの使用を許可してください（iPhoneは「動作と向き」も許可）。<br>
+    ※ HTTPS配信されたページでのみ動作します（GitHub Pages / Netlify など）。<br>
+    ※ 目的地はランダムに選ばれるため、川や私有地の近くになることがあります。無理に入らず、近くまで来たら到着とみなします。
+  </p>
+  <footer>位置情報と方位センサーのみで動作・APIキー不要</footer>
+</section>
+
+<!-- ====== 散歩画面 ====== -->
+<section id="screen-walk" class="screen">
+  <div class="topbar">
+    <span class="title-mini">🧭 目的地は、この先…</span>
+    <span class="gps"><span class="dot" id="gps-dot"></span><span id="gps-text">GPS取得中…</span></span>
+  </div>
+
+  <div class="compass-wrap">
+    <div class="ring"></div>
+    <div class="rose" id="rose">
+      <span class="n">N</span><span class="dir e">E</span><span class="dir s">S</span><span class="dir w">W</span>
+    </div>
+    <div class="arrow-wrap" id="arrow-wrap">
+      <svg class="arrow" width="90" height="90" viewBox="0 0 90 90">
+        <polygon points="45,6 60,40 45,32 30,40" fill="#38bdf8" stroke="#0ea5e9" stroke-width="1.5"/>
+        <line x1="45" y1="30" x2="45" y2="78" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+      </svg>
+    </div>
+    <div class="pulse"></div>
+  </div>
+
+  <div class="info">
+    <div class="bearing-line">目的地の方角：<b id="dir-text">--</b></div>
+    <div class="dist" id="dist-line">-- <small>m</small></div>
+    <div class="subline" id="hint-line"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="stat-time">0:00</div><div class="k">経過時間</div></div>
+    <div class="stat"><div class="v" id="stat-walk">0 m</div><div class="k">歩行距離</div></div>
+    <div class="stat"><div class="v" id="stat-acc">-- m</div><div class="k">GPS精度</div></div>
+  </div>
+
+  <button class="btn btn-ghost" id="btn-giveup">散歩をやめる</button>
+</section>
+
+<!-- ====== 到着画面 ====== -->
+<section id="screen-arrived" class="screen">
+  <div class="celebrate">
+    <div class="emoji">🎉</div>
+    <h2>目的地に到着！</h2>
+    <p>ここが、あなたが目指していた場所です。<br>おつかれさまでした。</p>
+  </div>
+  <div class="card dest-card">
+    <span class="label">隠されていた目的地</span>
+    <div class="coords" id="arr-coords">--</div>
+    <div class="subline" id="arr-meta" style="margin-top:8px;"></div>
+    <div class="links">
+      <a id="arr-gmap" href="#" target="_blank" rel="noopener">📍 地図で見る</a>
+      <a id="arr-again" href="#" class="ghost">もう一度散歩</a>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+"use strict";
+const EARTH_R = 6371000; // m
+const ARRIVE_M = 30;
+const DIREC_JA = ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+
+const $ = id => document.getElementById(id);
+const screens = { start:$("screen-start"), walk:$("screen-walk"), arrived:$("screen-arrived") };
+function show(name){
+  Object.values(screens).forEach(s=>s.classList.remove("active"));
+  screens[name].classList.add("active");
+  window.scrollTo(0,0);
+}
+
+/* ---------- 角度ユーティリティ ---------- */
+const toRad = d => d*Math.PI/180, toDeg = r => r*180/Math.PI;
+const norm360 = a => ((a%360)+360)%360;
+
+/* 2点間の大円距離(haversine) */
+function haversine(lat1,lon1,lat2,lon2){
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return EARTH_R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+/* 現在地から指定方位・距離にある点(宛先点計算) */
+function destinationPoint(lat,lon,bearing,dist){
+  const δ=dist/EARTH_R, θ=toRad(bearing), φ1=toRad(lat), λ1=toRad(lon);
+  const φ2=Math.asin(Math.sin(φ1)*Math.cos(δ)+Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
+  const λ2=λ1+Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
+  return {lat:toDeg(φ2), lon:((toDeg(λ2)+540)%360)-180};
+}
+/* 現在地→目的地の方位角(0-360, 北=0) */
+function bearing(lat1,lon1,lat2,lon2){
+  const φ1=toRad(lat1), φ2=toRad(lat2), Δλ=toRad(lon2-lon1);
+  const y=Math.sin(Δλ)*Math.cos(φ2);
+  const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return norm360(toDeg(Math.atan2(y,x)));
+}
+
+/* ---------- 状態 ---------- */
+const state = {
+  radius:1000, snap:true, showDist:true,
+  dest:null, startPos:null, heading:null,
+  walkDist:0, lastPos:null, startTime:0,
+  watchId:null, orientHandler:null, timerId:null, headingKnown:false
+};
+
+/* ---------- スタート画面 ---------- */
+document.querySelectorAll(".chip").forEach(c=>{
+  c.addEventListener("click",()=>{
+    document.querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));
+    c.classList.add("sel");
+    state.radius=+c.dataset.r;
+  });
+});
+
+function fail(msg){ const b=$("err-start"); b.textContent=msg; b.classList.add("show"); }
+
+$("btn-start").addEventListener("click", async ()=>{
+  $("err-start").classList.remove("show");
+  if(!("geolocation" in navigator)){ fail("このブラウザは位置情報に対応していません。"); return; }
+
+  // iOS 13+ のコンパス権限はユーザー操作から要求する必要がある
+  try{
+    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+      const p=await DeviceOrientationEvent.requestPermission();
+      if(p!=="granted") console.warn("コンパス権限が拒否されました(方位はGPS移動から推定)");
+    }
+  }catch(e){ console.warn(e); }
+
+  $("btn-start").textContent="現在地を取得中…"; $("btn-start").disabled=true;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    $("btn-start").textContent="散歩をはじめる"; $("btn-start").disabled=false;
+    beginWalk(pos.coords.latitude, pos.coords.longitude);
+  }, err=>{
+    $("btn-start").textContent="散歩をはじめる"; $("btn-start").disabled=false;
+    const m={1:"位置情報の利用が許可されていません。設定から許可してください。",
+             2:"現在地を取得できませんでした。屋外で再試行してください。",
+             3:"位置情報の取得がタイムアウトしました。再試行してください。"};
+    fail(m[err.code]||"位置情報の取得に失敗しました。");
+  },{enableHighAccuracy:true, timeout:15000, maximumAge:0});
+});
+
+/* ---------- 散歩開始 ---------- */
+function beginWalk(lat,lon){
+  state.startPos={lat,lon};
+  state.dest=null; state.walkDist=0; state.lastPos={lat,lon,ts:Date.now()};
+  state.startTime=Date.now(); state.heading=null; state.headingKnown=false;
+
+  // ランダム目的地: 方位0-360・距離を半径の45%~100%で抽選(端に寄りすぎないように)
+  const b=Math.random()*360;
+  const d=state.radius*(0.45+0.55*Math.random());
+  let p=destinationPoint(lat,lon,b,d);
+  setDest(p.lat,p.lon);
+
+  if(state.snap) snapToWay(p.lat,p.lon); // 道路へスナップ(非同期・失敗時はそのまま)
+
+  show("walk");
+  startCompass();
+  state.watchId=navigator.geolocation.watchPosition(onPos, onPosErr,
+    {enableHighAccuracy:true, maximumAge:2000, timeout:20000});
+  state.timerId=setInterval(updateStats,1000);
+  updateStats();
+}
+
+function setDest(lat,lon){ state.dest={lat,lon}; render(); }
+
+/* Overpass API(キー不要)で最寄りの歩ける道路ノードへスナップ */
+function snapToWay(lat,lon){
+  const query=`[out:json][timeout:8];(way(around:120,${lat},${lon})["highway"~"^(footway|path|pedestrian|steps|residential|living_street|unclassified|tertiary|secondary|primary|service|track|cycleway)$"];);out center 8;`;
+  fetch("https://overpass-api.de/api/interpreter",{method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:"data="+encodeURIComponent(query)})
+  .then(r=>r.ok?r.json():Promise.reject())
+  .then(j=>{
+    const els=(j.elements||[]).filter(e=>e.center).sort((a,b)=>
+      haversine(lat,lon,a.center.lat,a.center.lon)-haversine(lat,lon,b.center.lat,b.center.lon));
+    if(els.length && state.dest) setDest(els[0].center.lat, els[0].center.lon);
+  })
+  .catch(()=>{/* オフライン等: ランダム地点のまま */});
+}
+
+/* ---------- 位置更新 ---------- */
+function onPos(pos){
+  const c=pos.coords;
+  $("gps-dot").classList.add("ok");
+  $("gps-text").textContent="GPS受信中";
+
+  if(state.lastPos){
+    const step=haversine(state.lastPos.lat,state.lastPos.lon,c.latitude,c.longitude);
+    if(step<50) state.walkDist+=step; // GPSノイズによる大ジャンプは無視
+  }
+  state.lastPos={lat:c.latitude,lon:c.longitude};
+  $("stat-acc").textContent=Math.round(c.accuracy)+" m";
+  render();
+}
+function onPosErr(err){
+  $("gps-dot").classList.remove("ok");
+  $("gps-text").textContent= err.code===1 ? "位置情報が許可されていません" : "GPS信号を待機中…";
+}
+
+/* ---------- 描画 ---------- */
+function render(){
+  if(!state.dest || !state.lastPos) return;
+  const d=haversine(state.lastPos.lat,state.lastPos.lon,state.dest.lat,state.dest.lon);
+  const br=bearing(state.lastPos.lat,state.lastPos.lon,state.dest.lat,state.dest.lon);
+
+  // 方位表示(16方位)
+  $("dir-text").textContent = DIREC_JA[Math.round(br/22.5)%16];
+
+  // 距離ヒント(大まかに丸める)
+  if(state.showDist){
+    let v;
+    if(d<100) v=Math.max(10,Math.round(d/10)*10);
+    else if(d<1000) v=Math.round(d/50)*50;
+    else v=Math.round(d/100)*100;
+    $("dist-line").innerHTML = d<1000 ? `${v} <small>m</small>` : `${(v/1000).toFixed(1)} <small>km</small>`;
+  }else{
+    $("dist-line").innerHTML = d<200 ? "近い!" : "まだ遠い…";
+  }
+  $("hint-line").textContent = d<60 ? "もうすぐそこ!辺りを見回してみて" : "";
+
+  // 矢印回転 = 目的地方位 − 端末の向き
+  const heading = state.headingKnown ? state.heading : null;
+  const rot = heading!==null ? norm360(br-heading) : br;
+  $("arrow-wrap").style.transform=`rotate(${rot}deg)`;
+  // コンパスの目盛り(N/E/S/W)は端末の向きに追従
+  $("rose").style.transform = heading!==null ? `rotate(${-heading}deg)` : "rotate(0deg)";
+
+  // 到着判定
+  if(d<=ARRIVE_M) arrive();
+}
+
+/* ---------- コンパス ---------- */
+function startCompass(){
+  stopCompass();
+  const handler = e=>{
+    let h=null;
+    if(e.webkitCompassHeading!==undefined && e.webkitCompassHeading!==null){
+      h=e.webkitCompassHeading;                       // iOS
+    }else if(e.alpha!==null && e.alpha!==undefined){
+      const absolute = e.absolute===true ||
+        (typeof DeviceOrientationEvent!=="undefined" && DeviceOrientationEvent.absolute===true);
+      h = absolute ? norm360(360-e.alpha)             // Android(絶対方位)
+                   : null;                            // 相対方位のみ→不使用
+    }
+    if(h!==null){ state.heading=h; state.headingKnown=true; render(); }
+  };
+  state.orientHandler=handler;
+  // absolute イベントが使えるなら優先
+  let used=false;
+  try{ window.addEventListener("deviceorientationabsolute", handler, true); used=true; }catch(_){}
+  if(!used || true) window.addEventListener("deviceorientation", handler, true);
+
+  // コンパスが一度も来ない場合: 端末固定として絶対方位で案内
+  setTimeout(()=>{ if(!state.headingKnown) render(); }, 1500);
+}
+function stopCompass(){
+  if(state.orientHandler){
+    window.removeEventListener("deviceorientationabsolute",state.orientHandler,true);
+    window.removeEventListener("deviceorientation",state.orientHandler,true);
+    state.orientHandler=null;
+  }
+}
+
+/* ---------- 統計 ---------- */
+function updateStats(){
+  if(!state.startTime) return;
+  const s=Math.floor((Date.now()-state.startTime)/1000);
+  $("stat-time").textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  const w=state.walkDist;
+  $("stat-walk").textContent = w<1000 ? `${Math.round(w)} m` : `${(w/1000).toFixed(2)} km`;
+}
+
+/* ---------- 到着 ---------- */
+function arrive(){
+  const {lat,lon}=state.dest;
+  const elapsed=Math.floor((Date.now()-state.startTime)/1000);
+  $("arr-coords").textContent=`${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  $("arr-meta").textContent=`歩行距離 ${state.walkDist<1000?Math.round(state.walkDist)+" m":(state.walkDist/1000).toFixed(2)+" km"} ／ 所要時間 ${Math.floor(elapsed/60)}分${elapsed%60}秒`;
+  $("arr-gmap").href=`https://www.google.com/maps?q=${lat},${lon}`;
+  cleanup();
+  show("arrived");
+}
+
+/* ---------- 終了処理 ---------- */
+function cleanup(){
+  if(state.watchId!==null){ navigator.geolocation.clearWatch(state.watchId); state.watchId=null; }
+  if(state.timerId){ clearInterval(state.timerId); state.timerId=null; }
+  stopCompass();
+}
+$("btn-giveup").addEventListener("click",()=>{
+  if(confirm("散歩をやめて目的地をあきらめますか？")){
+    cleanup(); show("start");
+  }
+});
+$("arr-again").addEventListener("click",e=>{
+  e.preventDefault(); show("start");
+});
+})();
+</script>
+</body>
+</html>
